@@ -269,6 +269,19 @@ def draw_networkx(G, pos=None, arrows=True, with_labels=True, **kwds):
     plt.draw_if_interactive()
 
 
+def _default_ax():
+    ax = plt.gca()
+    ax.tick_params(
+        axis='both',
+        which='both',
+        bottom=False,
+        left=False,
+        labelbottom=False,
+        labelleft=False
+    )
+    return ax
+    
+
 def draw_networkx_nodes(G, pos,
                         nodelist=None,
                         node_size=300,
@@ -338,11 +351,8 @@ def draw_networkx_nodes(G, pos,
     label : [None| string]
        Label for legend
 
-    min_source_margin : int, optional (default=0)
-       The minimum margin (gap) at the begining of the edge at the source.
-
-    min_target_margin : int, optional (default=0)
-       The minimum margin (gap) at the end of the edge at the target.
+    kwds : dict, optional (default={})
+        Additional arguments are passed to `ax.scatter()`.
 
     Returns
     -------
@@ -376,7 +386,7 @@ def draw_networkx_nodes(G, pos,
         raise
 
     if ax is None:
-        ax = plt.gca()
+        ax = _default_ax()
 
     if nodelist is None:
         nodelist = list(G)
@@ -395,26 +405,24 @@ def draw_networkx_nodes(G, pos,
         node_color = apply_alpha(node_color, alpha, nodelist, cmap, vmin, vmax)
         alpha = None
 
-    node_collection = ax.scatter(xy[:, 0], xy[:, 1],
-                                 s=node_size,
-                                 c=node_color,
-                                 marker=node_shape,
-                                 cmap=cmap,
-                                 vmin=vmin,
-                                 vmax=vmax,
-                                 alpha=alpha,
-                                 linewidths=linewidths,
-                                 edgecolors=edgecolors,
-                                 label=label)
-    ax.tick_params(
-        axis='both',
-        which='both',
-        bottom=False,
-        left=False,
-        labelbottom=False,
-        labelleft=False)
+    kwargs = dict(
+        s=node_size,
+        c=node_color,
+        marker=node_shape,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        alpha=alpha,
+        linewidths=linewidths,
+        edgecolors=edgecolors,
+        label=label,
+        zorder=2,
+    )
 
-    node_collection.set_zorder(2)
+    kwargs.update(**kwds)
+
+    node_collection = ax.scatter(xy[:, 0], xy[:, 1], **kwargs)
+    
     return node_collection
 
 
@@ -508,6 +516,11 @@ def draw_networkx_edges(G, pos,
     min_target_margin : int, optional (default=0)
        The minimum margin (gap) at the end of the edge at the target.
 
+    kwds : dict, optional (default={})
+        Additional arguments passed to edge constructors `LineCollection` if
+        graph is undirected or `FancyArrowPatch` if graph is directed. These
+        kwargs are applied to all edges in the edgelist.
+
     Returns
     -------
     matplotlib.collection.LineCollection
@@ -561,7 +574,7 @@ def draw_networkx_edges(G, pos,
         raise
 
     if ax is None:
-        ax = plt.gca()
+        ax = _default_ax()
 
     if edgelist is None:
         edgelist = list(G.edges())
@@ -595,20 +608,27 @@ def draw_networkx_edges(G, pos,
         edge_color = [edge_cmap(color_normal(e)) for e in edge_color]
 
     if (not G.is_directed() or not arrows):
-        edge_collection = LineCollection(edge_pos,
-                                         colors=edge_color,
-                                         linewidths=width,
-                                         antialiaseds=(1,),
-                                         linestyle=style,
-                                         transOffset=ax.transData,
-                                         alpha=alpha
-                                         )
 
-        edge_collection.set_cmap(edge_cmap)
+        kwargs = dict(
+            colors=edge_color,
+            linewidths=width,
+            antialiaseds=(1,),
+            linestyle=style,
+            transOffset=ax.transData,
+            alpha=alpha,
+            zorder=1,
+            cmap=edge_cmap,
+            label=label,
+        )
+
+        kwargs.update(**kwds)
+
+        edge_collection = LineCollection(edge_pos, **kwargs)
+        # edge_collection.set_cmap(edge_cmap)
         edge_collection.set_clim(edge_vmin, edge_vmax)
 
-        edge_collection.set_zorder(1)  # edges go behind nodes
-        edge_collection.set_label(label)
+        # edge_collection.set_zorder(1)  # edges go behind nodes
+        # edge_collection.set_label(label)
         ax.add_collection(edge_collection)
 
         return edge_collection
@@ -667,16 +687,20 @@ def draw_networkx_edges(G, pos,
             else:
                 line_width = width
 
-            arrow = FancyArrowPatch((x1, y1), (x2, y2),
-                                    arrowstyle=arrowstyle,
-                                    shrinkA=shrink_source,
-                                    shrinkB=shrink_target,
-                                    mutation_scale=mutation_scale,
-                                    color=arrow_color,
-                                    linewidth=line_width,
-                                    connectionstyle=connectionstyle,
-                                    linestyle=style,
-                                    zorder=1)  # arrows go behind nodes
+            kwargs = dict(
+                arrowstyle=arrowstyle,
+                shrinkA=shrink_source,
+                shrinkB=shrink_target,
+                mutation_scale=mutation_scale,
+                color=arrow_color,
+                linewidth=line_width,
+                connectionstyle=connectionstyle,
+                linestyle=style,
+                zorder=1 # arrows go behind nodes by default
+            )
+            kwargs.update(**kwds)
+
+            arrow = FancyArrowPatch((x1, y1), (x2, y2), **kwargs)  
 
             # There seems to be a bug in matplotlib to make collections of
             # FancyArrowPatch instances. Until fixed, the patches are added
@@ -696,14 +720,6 @@ def draw_networkx_edges(G, pos,
     corners = (minx - padx, miny - pady), (maxx + padx, maxy + pady)
     ax.update_datalim(corners)
     ax.autoscale_view()
-
-    ax.tick_params(
-        axis='both',
-        which='both',
-        bottom=False,
-        left=False,
-        labelbottom=False,
-        labelleft=False)
 
     return arrow_collection
 
@@ -752,6 +768,10 @@ def draw_networkx_labels(G, pos,
     ax : Matplotlib Axes object, optional
        Draw the graph in the specified Matplotlib axes.
 
+    kwds : dict, optional (default={})
+        Additional keyword arguments to pass to `ax.text()`. These are 
+        applied to all node labels in G.
+
     Returns
     -------
     dict
@@ -782,42 +802,32 @@ def draw_networkx_labels(G, pos,
         raise
 
     if ax is None:
-        ax = plt.gca()
+        ax = _default_ax()
 
     if labels is None:
         labels = {n: n for n in G.nodes()}
 
-    # set optional alignment
-    horizontalalignment = kwds.get('horizontalalignment', 'center')
-    verticalalignment = kwds.get('verticalalignment', 'center')
+    kwargs = dict(
+        size=font_size,
+        color=font_color,
+        family=font_family,
+        weight=font_weight,
+        alpha=alpha,
+        horizontalalignment='center',
+        verticalalignment='center',
+        transform=ax.transData,
+        bbox=bbox,
+        clip_on=True,
+    )
+    kwargs.update(**kwds)
 
     text_items = {}  # there is no text collection so we'll fake one
     for n, label in labels.items():
         (x, y) = pos[n]
         if not isinstance(label, str):
             label = str(label)  # this makes "1" and 1 labeled the same
-        t = ax.text(x, y,
-                    label,
-                    size=font_size,
-                    color=font_color,
-                    family=font_family,
-                    weight=font_weight,
-                    alpha=alpha,
-                    horizontalalignment=horizontalalignment,
-                    verticalalignment=verticalalignment,
-                    transform=ax.transData,
-                    bbox=bbox,
-                    clip_on=True,
-                    )
+        t = ax.text(x, y, label, **kwargs)
         text_items[n] = t
-
-    ax.tick_params(
-        axis='both',
-        which='both',
-        bottom=False,
-        left=False,
-        labelbottom=False,
-        labelleft=False)
 
     return text_items
 
@@ -877,6 +887,10 @@ def draw_networkx_edge_labels(G, pos,
     clip_on : bool
        Turn on clipping at axis boundaries (default=True)
 
+    kwds : dict, optional (default={})
+        Additional keyword arguments to pass to `ax.text()`. These are 
+        applied to all edges specified as keys in edge_labels.
+
     Returns
     -------
     dict
@@ -908,7 +922,7 @@ def draw_networkx_edge_labels(G, pos,
         raise
 
     if ax is None:
-        ax = plt.gca()
+        ax = _default_ax()
     if edge_labels is None:
         labels = {(u, v): d for u, v, d in G.edges(data=True)}
     else:
@@ -943,34 +957,24 @@ def draw_networkx_edge_labels(G, pos,
         if not isinstance(label, str):
             label = str(label)  # this makes "1" and 1 labeled the same
 
-        # set optional alignment
-        horizontalalignment = kwds.get('horizontalalignment', 'center')
-        verticalalignment = kwds.get('verticalalignment', 'center')
+        kwargs = dict(
+            size=font_size,
+            color=font_color,
+            family=font_family,
+            weight=font_weight,
+            alpha=alpha,
+            horizontalalignment='center',
+            verticalalignment='center',
+            rotation=trans_angle,
+            transform=ax.transData,
+            bbox=bbox,
+            zorder=1,
+            clip_on=True,
+        )
+        kwargs.update(**kwds)
 
-        t = ax.text(x, y,
-                    label,
-                    size=font_size,
-                    color=font_color,
-                    family=font_family,
-                    weight=font_weight,
-                    alpha=alpha,
-                    horizontalalignment=horizontalalignment,
-                    verticalalignment=verticalalignment,
-                    rotation=trans_angle,
-                    transform=ax.transData,
-                    bbox=bbox,
-                    zorder=1,
-                    clip_on=True,
-                    )
+        t = ax.text(x, y, label, **kwargs)
         text_items[(n1, n2)] = t
-
-    ax.tick_params(
-        axis='both',
-        which='both',
-        bottom=False,
-        left=False,
-        labelbottom=False,
-        labelleft=False)
 
     return text_items
 
