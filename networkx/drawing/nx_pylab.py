@@ -115,8 +115,8 @@ def draw(G, pos=None, ax=None, **kwds):
 
     draw_networkx(G, pos=pos, ax=ax, **kwds)
     ax.set_axis_off()
-    plt.draw_if_interactive()
-    return
+    # plt.draw_if_interactive()
+    return ax
 
 
 def draw_networkx(G, pos=None, arrows=True, with_labels=True, **kwds):
@@ -270,6 +270,15 @@ def draw_networkx(G, pos=None, arrows=True, with_labels=True, **kwds):
 
 
 def _default_ax():
+    try:
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ImportError:
+        raise ImportError("Matplotlib required for draw()")
+    except RuntimeError:
+        print("Matplotlib unable to open display")
+        raise
+    
     ax = plt.gca()
     ax.tick_params(
         axis='both',
@@ -279,6 +288,7 @@ def _default_ax():
         labelbottom=False,
         labelleft=False
     )
+    
     return ax
     
 
@@ -295,6 +305,7 @@ def draw_networkx_nodes(G, pos,
                         linewidths=None,
                         edgecolors=None,
                         label=None,
+                        node_kwargs=None,
                         **kwds):
     """Draw the nodes of the graph G.
 
@@ -351,7 +362,7 @@ def draw_networkx_nodes(G, pos,
     label : [None| string]
        Label for legend
 
-    kwds : dict, optional (default={})
+    node_kwargs : dict, optional (default={})
         Additional arguments are passed to `ax.scatter()`.
 
     Returns
@@ -419,7 +430,8 @@ def draw_networkx_nodes(G, pos,
         zorder=2,
     )
 
-    kwargs.update(**kwds)
+    if node_kwargs is not None:
+        kwargs.update(**node_kwargs)
 
     node_collection = ax.scatter(xy[:, 0], xy[:, 1], **kwargs)
     
@@ -446,6 +458,7 @@ def draw_networkx_edges(G, pos,
                         connectionstyle=None,
                         min_source_margin=0,
                         min_target_margin=0,
+                        edge_kwargs=None,
                         **kwds):
     """Draw the edges of the graph G.
 
@@ -516,7 +529,7 @@ def draw_networkx_edges(G, pos,
     min_target_margin : int, optional (default=0)
        The minimum margin (gap) at the end of the edge at the target.
 
-    kwds : dict, optional (default={})
+    edge_kwargs : dict, optional (default={})
         Additional arguments passed to edge constructors `LineCollection` if
         graph is undirected or `FancyArrowPatch` if graph is directed. These
         kwargs are applied to all edges in the edgelist.
@@ -621,7 +634,8 @@ def draw_networkx_edges(G, pos,
             label=label,
         )
 
-        kwargs.update(**kwds)
+        if edge_kwargs is not None:
+            kwargs.update(**edge_kwargs)
 
         edge_collection = LineCollection(edge_pos, **kwargs)
         # edge_collection.set_cmap(edge_cmap)
@@ -698,7 +712,8 @@ def draw_networkx_edges(G, pos,
                 linestyle=style,
                 zorder=1 # arrows go behind nodes by default
             )
-            kwargs.update(**kwds)
+            if edge_kwargs is not None:
+                kwargs.update(**edge_kwargs)
 
             arrow = FancyArrowPatch((x1, y1), (x2, y2), **kwargs)  
 
@@ -733,6 +748,7 @@ def draw_networkx_labels(G, pos,
                          alpha=None,
                          bbox=None,
                          ax=None,
+                         node_label_kwargs=None,
                          **kwds):
     """Draw node labels on the graph G.
 
@@ -768,7 +784,7 @@ def draw_networkx_labels(G, pos,
     ax : Matplotlib Axes object, optional
        Draw the graph in the specified Matplotlib axes.
 
-    kwds : dict, optional (default={})
+    node_label_kwargs : dict, optional (default={})
         Additional keyword arguments to pass to `ax.text()`. These are 
         applied to all node labels in G.
 
@@ -819,7 +835,8 @@ def draw_networkx_labels(G, pos,
         bbox=bbox,
         clip_on=True,
     )
-    kwargs.update(**kwds)
+    if node_label_kwargs is not None:
+        kwargs.update(**node_label_kwargs)
 
     text_items = {}  # there is no text collection so we'll fake one
     for n, label in labels.items():
@@ -843,6 +860,7 @@ def draw_networkx_edge_labels(G, pos,
                               bbox=None,
                               ax=None,
                               rotate=True,
+                              edge_label_kwargs=None,
                               **kwds):
     """Draw edge labels.
 
@@ -887,7 +905,7 @@ def draw_networkx_edge_labels(G, pos,
     clip_on : bool
        Turn on clipping at axis boundaries (default=True)
 
-    kwds : dict, optional (default={})
+    edge_label_kwargs : dict, optional (default={})
         Additional keyword arguments to pass to `ax.text()`. These are 
         applied to all edges specified as keys in edge_labels.
 
@@ -971,7 +989,8 @@ def draw_networkx_edge_labels(G, pos,
             zorder=1,
             clip_on=True,
         )
-        kwargs.update(**kwds)
+        if edge_label_kwargs is not None:
+            kwargs.update(**edge_label_kwargs)
 
         t = ax.text(x, y, label, **kwargs)
         text_items[(n1, n2)] = t

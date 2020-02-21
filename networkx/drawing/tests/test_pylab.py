@@ -7,13 +7,14 @@ import pytest
 import numpy
 
 mpl = pytest.importorskip('matplotlib')
+mpl.use('PS', warn=False)
 plt = pytest.importorskip('matplotlib.pyplot')
 plt.rcParams['text.usetex'] = False
 
 import networkx as nx
 
 BASELINE_DIR = "baseline_images"
-IMG_TOL = 10
+IMG_TOL = 12
 PYTEST_MPL = dict(
     baseline_dir=BASELINE_DIR, 
     tolerance=IMG_TOL, 
